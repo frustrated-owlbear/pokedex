@@ -1,6 +1,6 @@
 module github.com/frustrated-owlbear/pokedex
 
-go 1.23.0
+go 1.25.3
 
 require github.com/wailsapp/wails/v2 v2.12.0
 
