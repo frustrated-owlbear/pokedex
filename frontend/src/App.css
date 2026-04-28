@@ -1,59 +1,192 @@
-#app {
-    height: 100vh;
-    text-align: center;
+.poke-app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.75rem;
+    padding: 1.5rem;
+    box-sizing: border-box;
 }
 
-#logo {
-    display: block;
-    width: 50%;
-    height: 50%;
-    margin: auto;
-    padding: 10% 0 0;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
-    background-origin: content-box;
-}
-
-.result {
-    height: 20px;
-    line-height: 20px;
-    margin: 1.5rem auto;
-}
-
-.input-box .btn {
-    width: 60px;
-    height: 30px;
-    line-height: 30px;
-    border-radius: 3px;
-    border: none;
-    margin: 0 0 0 20px;
-    padding: 0 8px;
+.ask-pokedex-btn {
+    font-family: inherit;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #fff;
     cursor: pointer;
-}
-
-.input-box .btn:hover {
-    background-image: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
-    color: #333333;
-}
-
-.input-box .input {
     border: none;
-    border-radius: 3px;
-    outline: none;
-    height: 30px;
-    line-height: 30px;
-    padding: 0 10px;
-    background-color: rgba(240, 240, 240, 1);
-    -webkit-font-smoothing: antialiased;
+    border-radius: 999px;
+    padding: 1rem 2.25rem;
+    background: linear-gradient(145deg, #ff6b6b 0%, #ee5a6f 45%, #c0398f 100%);
+    box-shadow:
+        0 4px 14px rgba(238, 90, 111, 0.45),
+        0 2px 0 rgba(255, 255, 255, 0.25) inset;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
-.input-box .input:hover {
-    border: none;
-    background-color: rgba(255, 255, 255, 1);
+.ask-pokedex-btn:hover:not(:disabled) {
+    transform: translateY(-2px) scale(1.02);
+    filter: brightness(1.05);
+    box-shadow:
+        0 8px 22px rgba(238, 90, 111, 0.5),
+        0 2px 0 rgba(255, 255, 255, 0.3) inset;
 }
 
-.input-box .input:focus {
+.ask-pokedex-btn:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+}
+
+.ask-pokedex-btn:disabled {
+    opacity: 0.75;
+    cursor: wait;
+}
+
+.poke-answer {
+    max-width: 36rem;
+    width: 100%;
+    line-height: 1.55;
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.92);
+    padding: 1rem 1.25rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: left;
+}
+
+.poke-answer-md {
+    overflow-wrap: break-word;
+}
+
+.poke-answer-md :first-child {
+    margin-top: 0;
+}
+
+.poke-answer-md :last-child {
+    margin-bottom: 0;
+}
+
+.poke-answer-md h1,
+.poke-answer-md h2,
+.poke-answer-md h3,
+.poke-answer-md h4 {
+    margin: 1rem 0 0.5rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.poke-answer-md h1 {
+    font-size: 1.35rem;
+}
+
+.poke-answer-md h2 {
+    font-size: 1.2rem;
+}
+
+.poke-answer-md h3,
+.poke-answer-md h4 {
+    font-size: 1.05rem;
+}
+
+.poke-answer-md p {
+    margin: 0.65rem 0;
+}
+
+.poke-answer-md ul,
+.poke-answer-md ol {
+    margin: 0.65rem 0;
+    padding-left: 1.35rem;
+}
+
+.poke-answer-md li {
+    margin: 0.25rem 0;
+}
+
+.poke-answer-md blockquote {
+    margin: 0.65rem 0;
+    padding: 0.35rem 0 0.35rem 0.85rem;
+    border-left: 3px solid rgba(255, 107, 107, 0.65);
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.poke-answer-md a {
+    color: #ff9ecd;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.poke-answer-md a:hover {
+    color: #ffc8e6;
+}
+
+.poke-answer-md hr {
+    margin: 1rem 0;
     border: none;
-    background-color: rgba(255, 255, 255, 1);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.poke-answer-md code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.9em;
+    padding: 0.15em 0.4em;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.35);
+}
+
+.poke-answer-md pre {
+    margin: 0.65rem 0;
+    padding: 0.85rem 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.poke-answer-md pre code {
+    padding: 0;
+    background: none;
+    font-size: 0.85rem;
+}
+
+.poke-answer-md table {
+    width: 100%;
+    margin: 0.65rem 0;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+}
+
+.poke-answer-md th,
+.poke-answer-md td {
+    padding: 0.45rem 0.65rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.poke-answer-md th {
+    background: rgba(0, 0, 0, 0.25);
+    font-weight: 600;
+}
+
+.poke-answer-md img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+
+.poke-stream-caret {
+    display: inline-block;
+    width: 0.28rem;
+    height: 1em;
+    margin-left: 3px;
+    vertical-align: text-bottom;
+    background: rgba(255, 180, 210, 0.95);
+    border-radius: 1px;
+    animation: poke-stream-caret-blink 1s steps(1, end) infinite;
+}
+
+@keyframes poke-stream-caret-blink {
+    50% {
+        opacity: 0;
+    }
 }

@@ -1,28 +1,69 @@
-import {useState} from 'react';
-import logo from './assets/images/logo-universal.png';
+import {useEffect, useState} from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import './App.css';
-import {Greet} from "../wailsjs/go/main/App";
+import {AnswerQuestion} from '../wailsjs/go/main/App';
+import {EventsOn} from '../wailsjs/runtime/runtime';
 
 function App() {
-    const [resultText, setResultText] = useState("Please enter your name below 👇");
-    const [name, setName] = useState('');
-    const updateName = (e: any) => setName(e.target.value);
-    const updateResultText = (result: string) => setResultText(result);
+    const [answer, setAnswer] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
 
-    function greet() {
-        Greet(name).then(updateResultText);
+    useEffect(() => {
+        const unsubscribe = EventsOn('llm:chunk', (...args: unknown[]) => {
+            const chunk =
+                typeof args[0] === 'string' ? args[0] : String(args[0] ?? '');
+            setAnswer((prev) => (prev ?? '') + chunk);
+        });
+        return unsubscribe;
+    }, []);
+
+    async function ask() {
+        setBusy(true);
+        setAnswer(null);
+        try {
+            await AnswerQuestion('');
+        } catch {
+            setAnswer((prev) => prev ?? 'Something went wrong. Try again!');
+        } finally {
+            setBusy(false);
+        }
     }
 
+    const showPanel = busy || answer != null;
+    const waitingForFirstChunk = busy && (answer === null || answer === '');
+
     return (
-        <div id="App">
-            <img src={logo} id="logo" alt="logo"/>
-            <div id="result" className="result">{resultText}</div>
-            <div id="input" className="input-box">
-                <input id="name" className="input" onChange={updateName} autoComplete="off" name="input" type="text"/>
-                <button className="btn" onClick={greet}>Greet</button>
-            </div>
+        <div className="poke-app">
+            <button
+                type="button"
+                className="ask-pokedex-btn"
+                onClick={ask}
+                disabled={busy}
+            >
+                Ask pokedex
+            </button>
+            {showPanel && (
+                <div className="poke-answer" role="status">
+                    {waitingForFirstChunk ? (
+                        'Thinking…'
+                    ) : (
+                        <div className="poke-answer-md">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {answer ?? ''}
+                            </ReactMarkdown>
+                            {busy && (
+                                <span
+                                    className="poke-stream-caret"
+                                    aria-hidden
+                                />
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
-    )
+    );
 }
 
-export default App
+export default App;
