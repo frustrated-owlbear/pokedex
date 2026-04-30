@@ -2,7 +2,7 @@ import {useEffect, useState} from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import './App.css';
-import {AnswerQuestion} from '../wailsjs/go/main/App';
+import {AnswerQuestion, MyPokemons} from '../wailsjs/go/main/App';
 import {EventsOn} from '../wailsjs/runtime/runtime';
 
 function App() {
@@ -30,6 +30,19 @@ function App() {
         }
     }
 
+    async function showMyPokemons() {
+        setBusy(true);
+        setAnswer(null);
+        try {
+            const pokemons = await MyPokemons();
+            setAnswer(pokemons.map((pokemon) => `- ${pokemon.name}`).join('\n'));
+        } catch {
+            setAnswer('Could not load your pokemons. Try again!');
+        } finally {
+            setBusy(false);
+        }
+    }
+
     const showPanel = busy || answer != null;
     const waitingForFirstChunk = busy && (answer === null || answer === '');
 
@@ -42,6 +55,14 @@ function App() {
                 disabled={busy}
             >
                 Ask pokedex
+            </button>
+            <button
+                type="button"
+                className="ask-pokedex-btn"
+                onClick={showMyPokemons}
+                disabled={busy}
+            >
+                My Pokemons
             </button>
             {showPanel && (
                 <div className="poke-answer" role="status">

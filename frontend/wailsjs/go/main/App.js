@@ -5,3 +5,7 @@
 export function AnswerQuestion(arg1) {
   return window['go']['main']['App']['AnswerQuestion'](arg1);
 }
+
+export function MyPokemons() {
+  return window['go']['main']['App']['MyPokemons']();
+}
