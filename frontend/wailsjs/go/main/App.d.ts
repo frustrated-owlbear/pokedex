@@ -4,4 +4,20 @@ import {domain} from '../models';
 
 export function AnswerQuestion(arg1:string):Promise<void>;
 
+export function AskPokedex(arg1:string):Promise<void>;
+
+export function GetCurrentSituation():Promise<domain.CurrentSituation>;
+
+export function GetKnowledgeBase():Promise<Array<domain.KnowledgeArticle>>;
+
+export function GetMyTeam():Promise<Array<domain.Pokemon>>;
+
+export function GetPokemonDetail(arg1:string):Promise<domain.PokemonDetail>;
+
+export function GetPokemonList(arg1:string):Promise<Array<domain.PokemonInfo>>;
+
+export function GetTrainerProfile():Promise<domain.TrainerProfile>;
+
+export function GetTypeAnalysis(arg1:string):Promise<domain.TypeAnalysis>;
+
 export function MyPokemons():Promise<Array<domain.Pokemon>>;

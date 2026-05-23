@@ -6,6 +6,38 @@ export function AnswerQuestion(arg1) {
   return window['go']['main']['App']['AnswerQuestion'](arg1);
 }
 
+export function AskPokedex(arg1) {
+  return window['go']['main']['App']['AskPokedex'](arg1);
+}
+
+export function GetCurrentSituation() {
+  return window['go']['main']['App']['GetCurrentSituation']();
+}
+
+export function GetKnowledgeBase() {
+  return window['go']['main']['App']['GetKnowledgeBase']();
+}
+
+export function GetMyTeam() {
+  return window['go']['main']['App']['GetMyTeam']();
+}
+
+export function GetPokemonDetail(arg1) {
+  return window['go']['main']['App']['GetPokemonDetail'](arg1);
+}
+
+export function GetPokemonList(arg1) {
+  return window['go']['main']['App']['GetPokemonList'](arg1);
+}
+
+export function GetTrainerProfile() {
+  return window['go']['main']['App']['GetTrainerProfile']();
+}
+
+export function GetTypeAnalysis(arg1) {
+  return window['go']['main']['App']['GetTypeAnalysis'](arg1);
+}
+
 export function MyPokemons() {
   return window['go']['main']['App']['MyPokemons']();
 }
