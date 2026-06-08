@@ -1,19 +1,35 @@
-# README
+# 01-inference
 
-## About
+Workshop stage 1: connect a Wails desktop app to a local Ollama instance and stream LLM responses for a basic prompt.
 
-This is the official Wails React-TS template.
+The Go backend loads configuration from environment variables, probes Ollama health, and streams tokens to the React UI as they arrive.
 
-You can configure the project by editing `wails.json`. More information about the project settings can be found
-here: https://wails.io/docs/reference/project-config
+## Prerequisites
 
-## Live Development
+- Go 1.25
+- Node
+- [Ollama](https://ollama.com/) running locally with `gemma3:latest` pulled
 
-To run in live development mode, run `wails dev` in the project directory. This will run a Vite development
-server that will provide very fast hot reload of your frontend changes. If you want to develop in a browser
-and have access to your Go methods, there is also a dev server that runs on http://localhost:34115. Connect
-to this in your browser, and you can call your Go code from devtools.
+## Configuration
 
-## Building
+Optional environment variables (defaults shown):
 
-To build a redistributable, production mode package, use `wails build`.
+| Variable | Default | Description |
+|---|---|---|
+| `OLLAMA_HOST` | `127.0.0.1:11434` | Ollama server host or URL |
+| `OLLAMA_MODEL` | `gemma3:latest` | Model name |
+| `OLLAMA_TEMPERATURE` | `0.8` | Sampling temperature |
+| `OLLAMA_HEALTH_TIMEOUT` | `2s` | Health probe timeout |
+| `OLLAMA_HEALTHCHECK_INTERVAL` | `5s` | UI status poll interval |
+
+## Development
+
+```bash
+wails dev
+```
+
+## Build
+
+```bash
+wails build
+```
