@@ -19,8 +19,11 @@ func main() {
 		return
 	}
 
-	// Create an instance of the app structure
-	app := NewApp(cfg)
+	app, err := NewApp(cfg)
+	if err != nil {
+		println("Error creating app:", err.Error())
+		return
+	}
 
 	// Create application with options
 	err = wails.Run(&options.App{

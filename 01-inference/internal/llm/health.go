@@ -37,7 +37,7 @@ func (c *Client) CheckHealth(ctx context.Context) ProbeResult {
 		checkCtx,
 		c.settings.BaseURL,
 		c.settings.ModelName,
-		&http.Client{},
+		c.http,
 	)
 }
 

@@ -29,16 +29,21 @@ type App struct {
 }
 
 // NewApp creates a new App application struct
-func NewApp(cfg config.Config) *App {
+func NewApp(cfg config.Config) (*App, error) {
+	client, err := llm.NewClient(llm.Settings{
+		ModelName:     cfg.OllamaModel,
+		BaseURL:       cfg.OllamaBaseURL(),
+		Temperature:   cfg.OllamaTemperature,
+		HealthTimeout: cfg.OllamaHealthTimeout,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return &App{
 		cfg: cfg,
-		llm: llm.NewClient(llm.Settings{
-			ModelName:     cfg.OllamaModel,
-			BaseURL:       cfg.OllamaBaseURL(),
-			Temperature:   cfg.OllamaTemperature,
-			HealthTimeout: cfg.OllamaHealthTimeout,
-		}),
-	}
+		llm: client,
+	}, nil
 }
 
 // startup is called when the app starts. The context is saved
