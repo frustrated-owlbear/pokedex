@@ -6,13 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/frustrated-owlbear/pokedex/01-inference/internal/config"
+	"github.com/frustrated-owlbear/pokedex/01-inference/internal/llm"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-const (
-	ollamaStatusEvent      = "ollama:status"
-	ollamaHealthcheckEvery = 5 * time.Second
-)
+const ollamaStatusEvent = "ollama:status"
 
 type SystemStatus struct {
 	Label   string `json:"label"`
@@ -24,12 +23,22 @@ type SystemStatus struct {
 // App struct
 type App struct {
 	ctx               context.Context
+	cfg               config.Config
+	llm               *llm.Client
 	healthcheckCancel context.CancelFunc
 }
 
 // NewApp creates a new App application struct
-func NewApp() *App {
-	return &App{}
+func NewApp(cfg config.Config) *App {
+	return &App{
+		cfg: cfg,
+		llm: llm.NewClient(llm.Settings{
+			ModelName:     cfg.OllamaModel,
+			BaseURL:       cfg.OllamaBaseURL(),
+			Temperature:   cfg.OllamaTemperature,
+			HealthTimeout: cfg.OllamaHealthTimeout,
+		}),
+	}
 }
 
 // startup is called when the app starts. The context is saved
@@ -51,7 +60,7 @@ func (a *App) AskPokedex(prompt string) error {
 	if p == "" {
 		return fmt.Errorf("prompt is required")
 	}
-	return streamCompletion(a.ctx, promptQuestion(p), func(chunk string) {
+	return a.llm.StreamCompletion(a.ctx, llm.Prompt(p), func(chunk string) {
 		runtime.EventsEmit(a.ctx, "llm:chunk", chunk)
 	})
 }
@@ -60,8 +69,13 @@ func (a *App) startOllamaHealthcheck() {
 	pollCtx, cancel := context.WithCancel(context.Background())
 	a.healthcheckCancel = cancel
 
+	interval := a.cfg.OllamaHealthcheckEvery
+	if interval <= 0 {
+		interval = 5 * time.Second
+	}
+
 	go func() {
-		ticker := time.NewTicker(ollamaHealthcheckEvery)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
 		a.emitOllamaStatus(pollCtx)
@@ -81,11 +95,11 @@ func (a *App) emitOllamaStatus(ctx context.Context) {
 	if a.ctx == nil {
 		return
 	}
-	runtime.EventsEmit(a.ctx, ollamaStatusEvent, currentOllamaStatus(ctx))
+	runtime.EventsEmit(a.ctx, ollamaStatusEvent, a.currentOllamaStatus(ctx))
 }
 
-func currentOllamaStatus(ctx context.Context) SystemStatus {
-	probe := checkOllamaHealth(ctx)
+func (a *App) currentOllamaStatus(ctx context.Context) SystemStatus {
+	probe := a.llm.CheckHealth(ctx)
 	status := SystemStatus{
 		Label:   "Ollama",
 		Value:   "Unavailable",
@@ -96,7 +110,7 @@ func currentOllamaStatus(ctx context.Context) SystemStatus {
 	switch {
 	case probe.Reachable && probe.ModelAvailable:
 		status.Value = "Running"
-		status.Detail = "gemma3:latest available"
+		status.Detail = a.llm.ModelName() + " available"
 		status.Healthy = true
 	case probe.Reachable:
 		status.Value = "Model missing"

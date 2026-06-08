@@ -1,4 +1,4 @@
-package main
+package llm
 
 import (
 	"context"
@@ -14,54 +14,54 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
 }
 
-func TestProbeOllamaHealthy(t *testing.T) {
+func TestProbeHealthy(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"models":[{"name":"gemma3:latest"}]}`))
 	}))
 	defer server.Close()
 
-	result := probeOllama(context.Background(), server.URL, ollamaModelName, server.Client())
+	result := Probe(context.Background(), server.URL, "gemma3:latest", server.Client())
 
 	if !result.Reachable {
 		t.Fatalf("expected Ollama to be reachable")
 	}
 	if !result.ModelAvailable {
-		t.Fatalf("expected %s to be available", ollamaModelName)
+		t.Fatalf("expected gemma3:latest to be available")
 	}
 	if result.Detail != "" {
 		t.Fatalf("expected no detail for healthy probe, got %q", result.Detail)
 	}
 }
 
-func TestProbeOllamaModelMissing(t *testing.T) {
+func TestProbeModelMissing(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"models":[{"name":"llama3:latest"}]}`))
 	}))
 	defer server.Close()
 
-	result := probeOllama(context.Background(), server.URL, ollamaModelName, server.Client())
+	result := Probe(context.Background(), server.URL, "gemma3:latest", server.Client())
 
 	if !result.Reachable {
 		t.Fatalf("expected Ollama to be reachable")
 	}
 	if result.ModelAvailable {
-		t.Fatalf("expected %s to be missing", ollamaModelName)
+		t.Fatalf("expected gemma3:latest to be missing")
 	}
 	if !strings.Contains(result.Detail, "not installed") {
 		t.Fatalf("expected model-missing detail, got %q", result.Detail)
 	}
 }
 
-func TestProbeOllamaTimeout(t *testing.T) {
+func TestProbeTimeout(t *testing.T) {
 	client := &http.Client{
 		Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 			return nil, context.DeadlineExceeded
 		}),
 	}
 
-	result := probeOllama(context.Background(), "http://ollama.local", ollamaModelName, client)
+	result := Probe(context.Background(), "http://ollama.local", "gemma3:latest", client)
 
 	if result.Reachable {
 		t.Fatalf("expected timeout probe to be unreachable")
