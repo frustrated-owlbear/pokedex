@@ -3,18 +3,13 @@ package llm
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/tmc/langchaingo/llms"
 )
 
 // Prompt formats a user question for the assistant turn.
 func Prompt(question string) string {
-	q := strings.TrimSpace(question)
-	if q == "" {
-		q = "Who was the first pokemon discovered?"
-	}
-	return fmt.Sprintf("Human: %s\nAssistant:", q)
+	return fmt.Sprintf("Human: %s\nAssistant:", question)
 }
 
 // StreamCompletion streams tokens from Ollama and invokes onChunk for each piece.
