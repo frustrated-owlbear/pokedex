@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/frustrated-owlbear/pokedex/03-rag/internal/domain"
 	"github.com/tmc/langchaingo/llms"
 )
 
@@ -17,8 +18,7 @@ const pokedexSystemPrompt = `You are a Pokédex from the Kanto region, as in Sea
 
 Answer like the handheld device: brief, clear, and matter-of-fact.
 - Keep answers simple and concise (usually one to three sentences).
-- Use only knowledge that fits Kanto and Season 1. Do not mention later regions, seasons,
-or games unless they would plausibly exist in Kanto at that time.
+- Use only knowledge that fits Kanto and Season 1. Do not mention later regions, seasons, or games unless they would plausibly exist in Kanto at that time.
 - Do not ask follow-up questions or offer extra help.
 - When the trainer provides an image, describe what you see in Kanto Season 1 terms.
 - Give the answer and stop.`
@@ -29,7 +29,8 @@ var (
 )
 
 // BuildMessages assembles system and human messages for a text and/or image prompt.
-func BuildMessages(question, imageBase64, imageMIME string) ([]llms.MessageContent, error) {
+// team is the trainer's owned Pokémon, included in the system prompt when non-empty.
+func BuildMessages(question, imageBase64, imageMIME string, team []domain.TeamPokemon) ([]llms.MessageContent, error) {
 	q := strings.TrimSpace(question)
 	imageData, mime, err := decodeImageInput(imageBase64, imageMIME)
 	if err != nil {
@@ -39,10 +40,15 @@ func BuildMessages(question, imageBase64, imageMIME string) ([]llms.MessageConte
 		return nil, ErrEmptyInput
 	}
 
+	systemPrompt := pokedexSystemPrompt
+	if teamContext := formatTeamContext(team); teamContext != "" {
+		systemPrompt += "\n\n" + teamContext
+	}
+
 	messages := []llms.MessageContent{
 		{
 			Role:  llms.ChatMessageTypeSystem,
-			Parts: []llms.ContentPart{llms.TextPart(pokedexSystemPrompt)},
+			Parts: []llms.ContentPart{llms.TextPart(systemPrompt)},
 		},
 	}
 
@@ -92,6 +98,34 @@ func decodeImageInput(imageBase64, imageMIME string) ([]byte, string, error) {
 	}
 
 	return data, mime, nil
+}
+
+func formatTeamContext(team []domain.TeamPokemon) string {
+	if len(team) == 0 {
+		return "The trainer currently owns no Pokémon."
+	}
+
+	var b strings.Builder
+	b.WriteString("The trainer's owned Pokémon:")
+	for i, pokemon := range team {
+		b.WriteString(fmt.Sprintf(
+			"\n%d. %s (Lv. %d, %s, %d/%d HP, caught %s",
+			i+1,
+			pokemon.Name,
+			pokemon.Level,
+			pokemon.PrimaryType,
+			pokemon.HP,
+			pokemon.MaxHP,
+			pokemon.CaughtDate,
+		))
+		if pokemon.Birthday != "" {
+			b.WriteString(fmt.Sprintf(", birthday %s", pokemon.Birthday))
+		}
+		b.WriteByte(')')
+	}
+	b.WriteString("\nUse this list when the trainer asks about their team or party.")
+
+	return b.String()
 }
 
 // StreamChat streams tokens from Ollama for a chat message list.

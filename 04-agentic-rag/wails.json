@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "03-rag",
+  "outputfilename": "03-rag",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "frustrated-owlbear",
+    "email": "a.chaikalembergdevops@gmail.com"
+  }
+}

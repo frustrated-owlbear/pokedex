@@ -1,9 +1,10 @@
-module github.com/frustrated-owlbear/pokedex/02-prompting
+module github.com/frustrated-owlbear/pokedex/03-rag
 
 go 1.25.3
 
 require (
 	github.com/Netflix/go-env v0.1.2
+	github.com/mattn/go-sqlite3 v1.14.45
 	github.com/tmc/langchaingo v0.1.14
 	github.com/wailsapp/wails/v2 v2.12.0
 )
