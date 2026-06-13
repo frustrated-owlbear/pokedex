@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frustrated-owlbear/pokedex/03-rag/internal/domain"
+	"github.com/frustrated-owlbear/pokedex/04-agentic-rag/internal/domain"
 	"github.com/tmc/langchaingo/llms"
 )
 

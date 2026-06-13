@@ -1,9 +1,10 @@
-module github.com/frustrated-owlbear/pokedex/03-rag
+module github.com/frustrated-owlbear/pokedex/04-agentic-rag
 
 go 1.25.3
 
 require (
 	github.com/Netflix/go-env v0.1.2
+	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.45
 	github.com/tmc/langchaingo v0.1.14
 	github.com/wailsapp/wails/v2 v2.12.0
@@ -15,7 +16,6 @@ require (
 	github.com/dlclark/regexp2 v1.11.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect
 	github.com/labstack/echo/v4 v4.13.3 // indirect

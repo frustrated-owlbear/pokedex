@@ -11,9 +11,17 @@ import {
 import DOMPurify from 'dompurify';
 import {marked} from 'marked';
 import './App.css';
-import {MyTeamWidget, type TeamPokemon} from './components/MyTeamWidget';
+import {AgentFeed} from './components/AgentFeed';
+import {LeftNav} from './components/LeftNav';
+import {SituationPanel} from './components/SituationPanel';
 import {MyTeamScreen} from './views/MyTeamScreen';
-import {AskPokedex, ListMyTeam} from '../wailsjs/go/main/App';
+import type {TeamPokemon} from './components/MyTeamWidget';
+import {
+    parseTraceStep,
+    type SituationView,
+    type TraceStep,
+} from './types/agent';
+import {AskPokedex, GetCurrentSituation, ListMyTeam} from '../wailsjs/go/main/App';
 import {EventsOn} from '../wailsjs/runtime/runtime';
 
 type SystemState = {
@@ -21,6 +29,16 @@ type SystemState = {
     value: string;
     detail?: string;
     healthy: boolean;
+};
+
+const defaultSituation: SituationView = {
+    location: 'Viridian Forest',
+    region: 'Kanto',
+    time: '--:--',
+    period: 'Morning',
+    weather: 'Clear',
+    memory: 'No previous sessions recorded yet.',
+    tools: [],
 };
 
 function fileToBase64(file: File): Promise<string> {
@@ -40,10 +58,10 @@ function fileToBase64(file: File): Promise<string> {
     });
 }
 
-type AppScreen = 'inference' | 'team';
+type AppScreen = 'feed' | 'team';
 
 function App() {
-    const [screen, setScreen] = useState<AppScreen>('inference');
+    const [screen, setScreen] = useState<AppScreen>('feed');
     const [selectedPokemonId, setSelectedPokemonId] = useState<number | null>(null);
     const [prompt, setPrompt] = useState('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -51,14 +69,11 @@ function App() {
     const [response, setResponse] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
-    const [lastSubmittedAt, setLastSubmittedAt] = useState<string | null>(null);
+    const [traceSteps, setTraceSteps] = useState<TraceStep[]>([]);
+    const [analysis, setAnalysis] = useState('');
     const fileInputRef = useRef<HTMLInputElement | null>(null);
-    const [systemState, setSystemState] = useState<SystemState>({
-        label: 'Ollama',
-        value: 'Checking...',
-        detail: 'Waiting for healthcheck',
-        healthy: false,
-    });
+    const [systemStates, setSystemStates] = useState<SystemState[]>([]);
+    const [situation, setSituation] = useState<SituationView>(defaultSituation);
     const [team, setTeam] = useState<TeamPokemon[]>([]);
     const [teamLoading, setTeamLoading] = useState(true);
     const [teamError, setTeamError] = useState('');
@@ -66,13 +81,19 @@ function App() {
     useEffect(() => {
         let cancelled = false;
 
-        async function loadTeam() {
+        async function loadInitialData() {
             setTeamLoading(true);
             setTeamError('');
             try {
-                const result = await ListMyTeam();
+                const [teamResult, situationResult] = await Promise.all([
+                    ListMyTeam(),
+                    GetCurrentSituation(),
+                ]);
                 if (!cancelled) {
-                    setTeam(result ?? []);
+                    setTeam(teamResult ?? []);
+                    if (situationResult) {
+                        setSituation(parseSituation(situationResult));
+                    }
                 }
             } catch {
                 if (!cancelled) {
@@ -86,7 +107,7 @@ function App() {
             }
         }
 
-        loadTeam();
+        loadInitialData();
         return () => {
             cancelled = true;
         };
@@ -99,12 +120,25 @@ function App() {
             setResponse((prev) => prev + chunk);
         });
 
+        const unsubscribeTrace = EventsOn('agent:trace', (...args: unknown[]) => {
+            const step = parseTraceStep(args[0]);
+            if (!step) {
+                return;
+            }
+            setTraceSteps((prev) => [...prev, step]);
+            if (step.kind === 'Observation' && step.detail) {
+                setAnalysis(step.detail);
+            }
+        });
+
         const unsubscribeStatus = EventsOn('ollama:status', (...args: unknown[]) => {
-            setSystemState(parseSystemState(args[0]));
+            const status = parseSystemState(args[0]);
+            setSystemStates((prev) => upsertSystemState(prev, status));
         });
 
         return () => {
             unsubscribeChunk();
+            unsubscribeTrace();
             unsubscribeStatus();
         };
     }, []);
@@ -164,6 +198,17 @@ function App() {
         }
     }
 
+    async function refreshSituation() {
+        try {
+            const situationResult = await GetCurrentSituation();
+            if (situationResult) {
+                setSituation(parseSituation(situationResult));
+            }
+        } catch {
+            // keep previous situation snapshot
+        }
+    }
+
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         const question = prompt.trim();
@@ -174,17 +219,23 @@ function App() {
         setBusy(true);
         setError('');
         setResponse('');
-        setLastSubmittedAt(
-            new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false}),
-        );
+        setTraceSteps([]);
+        setAnalysis('');
         try {
             const imageBase64 = selectedFile ? await fileToBase64(selectedFile) : '';
             const imageMIME = selectedFile?.type ?? '';
             await AskPokedex(question, imageBase64, imageMIME);
+            await refreshSituation();
             setPrompt('');
             clearImage();
-        } catch {
-            setError('Could not reach the Pokédex. Try again.');
+        } catch (err) {
+            const message =
+                typeof err === 'string'
+                    ? err
+                    : err instanceof Error
+                      ? err.message
+                      : '';
+            setError(message.trim() || 'Could not reach the Pokédex. Try again.');
         } finally {
             setBusy(false);
         }
@@ -215,147 +266,135 @@ function App() {
     if (screen === 'team') {
         return (
             <MyTeamScreen
-                onBack={() => setScreen('inference')}
+                onBack={() => setScreen('feed')}
                 initialSelectedId={selectedPokemonId}
             />
         );
     }
 
     return (
-        <main className="inference-screen">
-            <div className="inference-screen__shell">
-            <div className="inference-screen__header">
-                <section className="system-status-card" aria-label="System status">
-                    <p className="system-status-card__title">SYSTEM STATUS</p>
-                    <div className="system-status-card__divider" aria-hidden />
-                    <ul className="system-status-list">
-                        <li
-                            className={`system-status-item${
-                                systemState.healthy ? '' : ' system-status-item--unhealthy'
-                            }`}
-                        >
-                            <div className="system-status-row">
-                                <div className="system-status-row__meta">
-                                    <span className="system-status-row__icon" aria-hidden>
-                                        <StatusGlyph />
-                                    </span>
-                                    <span className="system-status-row__label">{systemState.label}</span>
-                                </div>
-                                <span className="system-status-row__value">{systemState.value}</span>
-                            </div>
-                            {systemState.detail && (
-                                <p className="system-status-row__detail">{systemState.detail}</p>
-                            )}
-                        </li>
-                    </ul>
-                </section>
+        <main className="dashboard">
+            <div className="dashboard__grid">
+                <LeftNav
+                    active="feed"
+                    systemStates={systemStates}
+                    onNavigate={(item) => {
+                        if (item === 'team') {
+                            openTeamScreen(null);
+                        }
+                    }}
+                />
 
-                <section className="composer-dock" aria-label="Inference input">
-                    <form className="composer" onSubmit={handleSubmit}>
-                        <button
-                            type="button"
-                            className={`composer__dropzone${isDragging ? ' composer__dropzone--dragging' : ''}`}
-                            onClick={openFilePicker}
-                            onDragOver={handleDragOver}
-                            onDragLeave={handleDragLeave}
-                            onDrop={handleDrop}
-                            aria-label="Add image"
-                        >
-                            {previewUrl ? (
-                                <>
-                                    <img
-                                        src={previewUrl}
-                                        alt={selectedFile?.name ?? 'Selected upload'}
-                                        className="composer__preview"
-                                    />
-                                    <span className="composer__preview-name">
-                                        {selectedFile?.name}
-                                    </span>
-                                </>
-                            ) : (
-                                <>
-                                    <span className="composer__dropzone-icon" aria-hidden>
-                                        <UploadGlyph />
-                                    </span>
-                                    <span className="composer__dropzone-text">
-                                        Add image
-                                    </span>
-                                    <span className="composer__dropzone-subtext">
-                                        click or drop
-                                    </span>
-                                </>
-                            )}
-                        </button>
+                <section className="dashboard__main" aria-label="Agent workspace">
+                    <div className="dashboard__workspace">
+                        <AgentFeed steps={traceSteps} busy={busy} />
 
-                        <div className="composer__panel">
-                            <textarea
-                                value={prompt}
-                                onChange={(event) => setPrompt(event.target.value)}
-                                onKeyDown={handlePromptKeyDown}
-                                className="composer__textarea"
-                                placeholder="Describe or ask Pokédex..."
-                                rows={4}
-                            />
-
-                            <button
-                                type="submit"
-                                className="composer__send"
-                                disabled={busy || !canSubmit}
-                                aria-label="Send input"
+                        {(error || busy || response) && (
+                            <section
+                                className={`agentic-answer${
+                                    error ? ' agentic-answer--error' : ''
+                                }`}
+                                role="status"
+                                aria-live="polite"
                             >
-                                <SendGlyph />
-                            </button>
-                        </div>
-
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="composer__file-input"
-                            onChange={handleFileInput}
-                        />
-                    </form>
-
-                    <div className="composer__footer">
-                        <span>Press Cmd/Ctrl + Enter to send</span>
-                        {lastSubmittedAt && (
-                            <span className="composer__footer-time">Last submitted at {lastSubmittedAt}</span>
+                                {error ? (
+                                    <>
+                                        <p className="agentic-answer__label">ERROR</p>
+                                        <p className="agentic-answer__message">{error}</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="agentic-answer__label">FINAL ANSWER</p>
+                                        <div
+                                            className="agentic-answer__markdown"
+                                            dangerouslySetInnerHTML={{__html: renderedMarkdown}}
+                                        />
+                                        {busy && <span className="composer__caret" aria-hidden />}
+                                    </>
+                                )}
+                            </section>
                         )}
                     </div>
+
+                    <section className="composer-dock dashboard__composer" aria-label="Inference input">
+                        <form className="composer" onSubmit={handleSubmit}>
+                            <button
+                                type="button"
+                                className={`composer__dropzone${
+                                    isDragging ? ' composer__dropzone--dragging' : ''
+                                }`}
+                                onClick={openFilePicker}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                aria-label="Add image"
+                            >
+                                {previewUrl ? (
+                                    <>
+                                        <img
+                                            src={previewUrl}
+                                            alt={selectedFile?.name ?? 'Selected upload'}
+                                            className="composer__preview"
+                                        />
+                                        <span className="composer__preview-name">
+                                            {selectedFile?.name}
+                                        </span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="composer__dropzone-icon" aria-hidden>
+                                            <UploadGlyph />
+                                        </span>
+                                        <span className="composer__dropzone-text">Add image</span>
+                                        <span className="composer__dropzone-subtext">
+                                            click or drop
+                                        </span>
+                                    </>
+                                )}
+                            </button>
+
+                            <div className="composer__panel">
+                                <textarea
+                                    value={prompt}
+                                    onChange={(event) => setPrompt(event.target.value)}
+                                    onKeyDown={handlePromptKeyDown}
+                                    className="composer__textarea"
+                                    placeholder="Describe what you see or ask Pokédex..."
+                                    rows={3}
+                                />
+
+                                <button
+                                    type="submit"
+                                    className="composer__send"
+                                    disabled={busy || !canSubmit}
+                                    aria-label="Send input"
+                                >
+                                    <SendGlyph />
+                                </button>
+                            </div>
+
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="composer__file-input"
+                                onChange={handleFileInput}
+                            />
+                        </form>
+                    </section>
                 </section>
 
-                <aside className="inference-screen__team-rail">
-                    <MyTeamWidget
+                <aside className="dashboard__aside" aria-label="Context and tools">
+                    <SituationPanel
+                        situation={situation}
                         team={team}
-                        loading={teamLoading}
-                        error={teamError}
-                        onOpen={() => openTeamScreen(null)}
+                        teamLoading={teamLoading}
+                        teamError={teamError}
+                        analysis={analysis}
+                        onOpenTeam={() => openTeamScreen(null)}
                         onSelectPokemon={(id) => openTeamScreen(id)}
                     />
                 </aside>
-            </div>
-
-            <div className="inference-screen__body">
-                <div className="response-shell">
-                    <section
-                        className={`response-panel${error ? ' response-panel--error' : ''}`}
-                        role="status"
-                        aria-live="polite"
-                    >
-                        {error ? (
-                            <p className="response-panel__message">{error}</p>
-                        ) : busy || response ? (
-                            <>
-                                <div
-                                    className="response-panel__markdown"
-                                    dangerouslySetInnerHTML={{__html: renderedMarkdown}}
-                                />
-                                {busy && <span className="composer__caret" aria-hidden />}
-                            </>
-                        ) : null}
-                    </section>
-                </div>
-            </div>
             </div>
         </main>
     );
@@ -380,19 +419,33 @@ function parseSystemState(payload: unknown): SystemState {
     };
 }
 
-function StatusGlyph() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="1.6" />
-            <path
-                d="M9.25 12.25l1.8 1.8 3.9-4.1"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-        </svg>
-    );
+function upsertSystemState(states: SystemState[], next: SystemState): SystemState[] {
+    const index = states.findIndex((state) => state.label === next.label);
+    if (index === -1) {
+        return [...states, next];
+    }
+    const copy = [...states];
+    copy[index] = next;
+    return copy;
+}
+
+function parseSituation(payload: unknown): SituationView {
+    if (!payload || typeof payload !== 'object') {
+        return defaultSituation;
+    }
+    const record = payload as Record<string, unknown>;
+    return {
+        location: typeof record.location === 'string' ? record.location : defaultSituation.location,
+        region: typeof record.region === 'string' ? record.region : defaultSituation.region,
+        time: typeof record.time === 'string' ? record.time : defaultSituation.time,
+        period: typeof record.period === 'string' ? record.period : defaultSituation.period,
+        weather: typeof record.weather === 'string' ? record.weather : defaultSituation.weather,
+        memory: typeof record.memory === 'string' ? record.memory : defaultSituation.memory,
+        tools: Array.isArray(record.tools)
+            ? record.tools.filter((tool): tool is string => typeof tool === 'string')
+            : [],
+        analysis: typeof record.analysis === 'string' ? record.analysis : undefined,
+    };
 }
 
 function UploadGlyph() {

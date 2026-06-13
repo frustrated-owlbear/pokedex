@@ -10,10 +10,11 @@ import (
 const defaultHealthTimeout = 2 * time.Second
 
 type Settings struct {
-	ModelName     string
-	BaseURL       string
-	Temperature   float64
-	HealthTimeout time.Duration
+	ModelName      string
+	AgentModelName string
+	BaseURL        string
+	Temperature    float64
+	HealthTimeout  time.Duration
 }
 
 type Client struct {
@@ -46,5 +47,12 @@ func NewClient(settings Settings) (*Client, error) {
 }
 
 func (c *Client) ModelName() string {
+	return c.settings.ModelName
+}
+
+func (c *Client) AgentModelName() string {
+	if c.settings.AgentModelName != "" {
+		return c.settings.AgentModelName
+	}
 	return c.settings.ModelName
 }

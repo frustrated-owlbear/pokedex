@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/frustrated-owlbear/pokedex/03-rag/internal/domain"
+	"github.com/frustrated-owlbear/pokedex/04-agentic-rag/internal/domain"
 	"github.com/tmc/langchaingo/llms"
 )
 
@@ -66,6 +66,11 @@ func BuildMessages(question, imageBase64, imageMIME string, team []domain.TeamPo
 	})
 
 	return messages, nil
+}
+
+// DecodeImageInput validates optional base64 image input for agent and chat paths.
+func DecodeImageInput(imageBase64, imageMIME string) ([]byte, string, error) {
+	return decodeImageInput(imageBase64, imageMIME)
 }
 
 func decodeImageInput(imageBase64, imageMIME string) ([]byte, string, error) {

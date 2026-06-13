@@ -3,7 +3,7 @@ package pokemonstore
 import (
 	"database/sql"
 
-	"github.com/frustrated-owlbear/pokedex/03-rag/internal/domain"
+	"github.com/frustrated-owlbear/pokedex/04-agentic-rag/internal/domain"
 	_ "github.com/mattn/go-sqlite3"
 )
 

@@ -6,10 +6,18 @@ export function AskPokedex(arg1, arg2, arg3) {
   return window['go']['main']['App']['AskPokedex'](arg1, arg2, arg3);
 }
 
+export function GetCurrentSituation() {
+  return window['go']['main']['App']['GetCurrentSituation']();
+}
+
 export function GetTeamMember(arg1) {
   return window['go']['main']['App']['GetTeamMember'](arg1);
 }
 
 export function ListMyTeam() {
   return window['go']['main']['App']['ListMyTeam']();
+}
+
+export function ListRecentTraces() {
+  return window['go']['main']['App']['ListRecentTraces']();
 }

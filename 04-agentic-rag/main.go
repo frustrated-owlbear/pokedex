@@ -3,7 +3,7 @@ package main
 import (
 	"embed"
 
-	"github.com/frustrated-owlbear/pokedex/03-rag/internal/config"
+	"github.com/frustrated-owlbear/pokedex/04-agentic-rag/internal/config"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -26,9 +26,11 @@ func main() {
 	}
 
 	err = wails.Run(&options.App{
-		Title:  "03-rag",
-		Width:  1024,
-		Height: 680,
+		Title:  "04-agentic-rag",
+		Width:  1280,
+		Height: 840,
+		MinWidth: 960,
+		MinHeight: 640,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
