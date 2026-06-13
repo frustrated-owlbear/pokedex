@@ -11,6 +11,7 @@ import (
 	"github.com/frustrated-owlbear/pokedex/04-agentic-rag/internal/llm"
 	"github.com/frustrated-owlbear/pokedex/04-agentic-rag/internal/simulation"
 	"github.com/frustrated-owlbear/pokedex/04-agentic-rag/internal/tools"
+	"github.com/tmc/langchaingo/llms"
 )
 
 func TestLoopExecutesToolThenStreamsFinalAnswer(t *testing.T) {
@@ -92,6 +93,24 @@ func TestLoopExecutesToolThenStreamsFinalAnswer(t *testing.T) {
 	}
 	if !foundAction {
 		t.Fatalf("expected action trace step, got %#v", steps)
+	}
+}
+
+func TestPlanToolCallRouteCorrection(t *testing.T) {
+	t.Parallel()
+
+	plan := planToolCall("What was my first caught pokemon?", &llms.FunctionCall{
+		Name:      "session_memory",
+		Arguments: `{"query":"first caught pokemon"}`,
+	})
+	if !plan.corrected {
+		t.Fatal("expected route correction")
+	}
+	if plan.name != "pokemon_db" {
+		t.Fatalf("expected pokemon_db, got %q", plan.name)
+	}
+	if !strings.Contains(plan.args, `"sort_by":"caught_date"`) {
+		t.Fatalf("expected caught-date sort args, got %q", plan.args)
 	}
 }
 

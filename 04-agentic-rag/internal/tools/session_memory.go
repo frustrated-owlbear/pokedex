@@ -23,7 +23,7 @@ func NewSessionMemoryTool(store *session.Store, topK int) *SessionMemoryTool {
 func (t *SessionMemoryTool) Name() string { return "session_memory" }
 
 func (t *SessionMemoryTool) Description() string {
-	return "Searches previous conversations and observations for relevant context."
+	return "Searches previous conversations and observations. Use only when the trainer asks about past chats or earlier sessions. Do not use for current team, party, or owned Pokémon questions; use pokemon_db instead."
 }
 
 func (t *SessionMemoryTool) Parameters() map[string]any {

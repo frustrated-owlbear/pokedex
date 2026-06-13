@@ -1177,6 +1177,16 @@
     gap: 10px;
 }
 
+.agent-feed__item--route-correction .agent-feed__card {
+    border-color: #c9b8ff;
+    background: linear-gradient(180deg, #faf7ff 0%, #f3edff 100%);
+    box-shadow: 0 0 0 1px rgba(91, 69, 133, 0.08);
+}
+
+.agent-feed__item--route-correction .agent-feed__rail {
+    background: #8f73d6;
+}
+
 .agent-feed__rail {
     width: 2px;
     margin: 0 auto;

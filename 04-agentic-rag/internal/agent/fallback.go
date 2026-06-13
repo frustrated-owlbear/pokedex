@@ -31,17 +31,34 @@ func (l *Loop) runPrefetchFallback(
 	plans := []prefetchTool{
 		{name: "clock", args: json.RawMessage(`{}`)},
 		{name: "gps", args: json.RawMessage(`{}`)},
-		{name: "pokemon_db", args: json.RawMessage(`{}`)},
+	}
+	if mentionsTrainerTeam(strings.ToLower(question)) || question == "" {
+		plans = append(plans, prefetchTool{name: "pokemon_db", args: json.RawMessage(`{}`)})
 	}
 	if question != "" {
 		queryArgs, err := json.Marshal(map[string]string{"query": question})
 		if err != nil {
 			return err
 		}
-		plans = append(plans,
-			prefetchTool{name: "session_memory", args: queryArgs},
-			prefetchTool{name: "knowledge_search", args: queryArgs},
-		)
+		if mentionsPastConversation(strings.ToLower(question)) {
+			plans = append(plans, prefetchTool{name: "session_memory", args: queryArgs})
+		}
+		if mentionsPokemonFacts(strings.ToLower(question)) && !mentionsTrainerTeam(strings.ToLower(question)) {
+			plans = append(plans, prefetchTool{name: "knowledge_search", args: queryArgs})
+		}
+	}
+	if !mentionsTrainerTeam(strings.ToLower(question)) && question != "" {
+		// Default party context for general questions unless clearly not team-related.
+		hasPokemonDB := false
+		for _, plan := range plans {
+			if plan.name == "pokemon_db" {
+				hasPokemonDB = true
+				break
+			}
+		}
+		if !hasPokemonDB {
+			plans = append(plans, prefetchTool{name: "pokemon_db", args: json.RawMessage(`{}`)})
+		}
 	}
 
 	toolNames := make([]string, 0, len(plans))

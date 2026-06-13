@@ -99,7 +99,14 @@ export function AgentFeed({steps, busy}: AgentFeedProps) {
                     </p>
                 )}
                 {visibleSteps.map((step) => (
-                    <article key={step.id} className="agent-feed__item">
+                    <article
+                        key={step.id}
+                        className={`agent-feed__item${
+                            step.title === 'Route Correction'
+                                ? ' agent-feed__item--route-correction'
+                                : ''
+                        }`}
+                    >
                         <div className="agent-feed__rail" aria-hidden />
                         <div className="agent-feed__card">
                             <div className="agent-feed__card-meta">

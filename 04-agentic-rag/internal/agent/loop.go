@@ -13,12 +13,20 @@ import (
 
 const agentSystemPrompt = `You are a Pokédex from the Kanto region, as in Season 1 of the Pokémon anime.
 
-You can call tools to gather context before answering. Use tools when you need:
-- current time or weather (clock)
-- trainer location (gps)
-- owned Pokémon (pokemon_db)
-- past conversations (session_memory)
-- Pokémon facts and Kanto lore (knowledge_search)
+You can call tools to gather context before answering:
+- clock: in-game time and weather
+- gps: trainer's current location
+- pokemon_db: trainer's current party from the local database; filter by species, type, level, and caught date; sort with sort_by (slot or caught_date) before limit
+- session_memory: search past conversations only
+- knowledge_search: Pokédex facts and Kanto lore
+
+Tool selection rules:
+- Questions about "my team", "my Pokémon", "party", or "what I own" -> pokemon_db
+- First/earliest caught Pokémon -> pokemon_db with sort_by=caught_date, sort_order=asc, limit=1
+- Most recently caught Pokémon -> pokemon_db with sort_by=caught_date, sort_order=desc, limit=1
+- First party slot / lead Pokémon -> pokemon_db with sort_by=slot, limit=1
+- Questions about earlier chats or "last time we discussed" -> session_memory
+- Never use session_memory to answer what Pokémon the trainer currently owns
 
 When you have enough information, reply with a final answer only (no tool calls).
 Keep answers brief and matter-of-fact (one to three sentences).
@@ -84,7 +92,7 @@ func (l *Loop) Run(
 	messages := []llms.MessageContent{
 		{
 			Role:  llms.ChatMessageTypeSystem,
-			Parts: []llms.ContentPart{llms.TextPart(agentSystemPrompt)},
+			Parts: []llms.ContentPart{llms.TextPart(buildSystemPrompt(question))},
 		},
 	}
 
@@ -158,21 +166,43 @@ func (l *Loop) Run(
 		}
 
 		toolNames := make([]string, 0, len(choice.ToolCalls))
-		for _, call := range choice.ToolCalls {
-			if call.FunctionCall != nil {
-				toolNames = append(toolNames, call.FunctionCall.Name)
-			}
-		}
-		onTrace(NewTraceStep(StepAction, "Use Tools", formatToolArgs(choice.ToolCalls), toolNames...))
-
-		messages = llm.AppendAssistantTurn(messages, choice)
-
-		results := make(map[string]string, len(choice.ToolCalls))
+		plannedCalls := make([]plannedToolCall, 0, len(choice.ToolCalls))
 		for _, call := range choice.ToolCalls {
 			if call.FunctionCall == nil {
 				continue
 			}
-			result, execErr := l.registry.Execute(ctx, call.FunctionCall.Name, call.FunctionCall.Arguments)
+			plan := planToolCall(question, call.FunctionCall)
+			plannedCalls = append(plannedCalls, plan)
+			toolNames = append(toolNames, plan.name)
+		}
+		onTrace(NewTraceStep(StepAction, "Use Tools", formatPlannedToolArgs(plannedCalls), toolNames...))
+
+		messages = llm.AppendAssistantTurn(messages, choice)
+
+		results := make(map[string]string, len(choice.ToolCalls))
+		planIndex := 0
+		for _, call := range choice.ToolCalls {
+			if call.FunctionCall == nil {
+				continue
+			}
+			plan := plannedCalls[planIndex]
+			planIndex++
+
+			if plan.corrected {
+				onTrace(NewTraceStep(
+					StepEvent,
+					"Route Correction",
+					fmt.Sprintf(
+						"Model requested %s(%s); redirected to %s(%s).",
+						plan.requestedName,
+						plan.requestedArgs,
+						plan.name,
+						plan.args,
+					),
+					plan.name,
+				))
+			}
+			result, execErr := l.registry.Execute(ctx, plan.name, plan.args)
 			if execErr != nil {
 				result = fmt.Sprintf("tool error: %v", execErr)
 			}
@@ -185,9 +215,9 @@ func (l *Loop) Run(
 				StepObservation,
 				"Retrieval Results",
 				truncateDetail(result, 500),
-				call.FunctionCall.Name,
+				plan.name,
 			))
-			traceSummary.WriteString(call.FunctionCall.Name)
+			traceSummary.WriteString(plan.name)
 			traceSummary.WriteString(": ")
 			traceSummary.WriteString(truncateDetail(result, 80))
 			traceSummary.WriteByte('\n')
@@ -212,13 +242,41 @@ func (l *Loop) Run(
 	return nil
 }
 
-func formatToolArgs(calls []llms.ToolCall) string {
-	parts := make([]string, 0, len(calls))
-	for _, call := range calls {
-		if call.FunctionCall == nil {
-			continue
-		}
-		parts = append(parts, fmt.Sprintf("%s(%s)", call.FunctionCall.Name, call.FunctionCall.Arguments))
+func buildSystemPrompt(question string) string {
+	prompt := agentSystemPrompt
+	if hint := toolHintForQuestion(question); hint != "" {
+		prompt += "\n\n" + hint
+	}
+	return prompt
+}
+
+type plannedToolCall struct {
+	requestedName string
+	requestedArgs string
+	name          string
+	args          string
+	corrected     bool
+}
+
+func planToolCall(question string, call *llms.FunctionCall) plannedToolCall {
+	plan := plannedToolCall{
+		requestedName: call.Name,
+		requestedArgs: call.Arguments,
+		name:          call.Name,
+		args:          call.Arguments,
+	}
+	if plan.name == "session_memory" && mentionsTrainerTeam(strings.ToLower(question)) {
+		plan.name = "pokemon_db"
+		plan.args = pokemonDBToolArgsForQuestion(question)
+		plan.corrected = true
+	}
+	return plan
+}
+
+func formatPlannedToolArgs(plans []plannedToolCall) string {
+	parts := make([]string, 0, len(plans))
+	for _, plan := range plans {
+		parts = append(parts, fmt.Sprintf("%s(%s)", plan.name, plan.args))
 	}
 	return strings.Join(parts, ", ")
 }

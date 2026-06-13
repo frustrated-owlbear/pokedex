@@ -2,23 +2,32 @@ package pokemonstore
 
 import (
 	"database/sql"
+	"fmt"
+	"strings"
+	"sync/atomic"
 
 	"github.com/frustrated-owlbear/pokedex/04-agentic-rag/internal/domain"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-const inMemoryDSN = "file:pokedex?mode=memory&cache=shared"
+var sqliteStoreID atomic.Int64
 
 const teamSelectColumns = `
 	id, dex_id, name, level, primary_type, hp, max_hp, caught_date, birthday
 `
+
+func newInMemoryDSN() string {
+	id := sqliteStoreID.Add(1)
+	// Shared cache lets every connection in the pool see the same in-memory DB.
+	return fmt.Sprintf("file:pokedex%d?mode=memory&cache=shared", id)
+}
 
 type SQLiteStore struct {
 	db *sql.DB
 }
 
 func NewSQLiteStore() (*SQLiteStore, error) {
-	db, err := sql.Open("sqlite3", inMemoryDSN)
+	db, err := sql.Open("sqlite3", newInMemoryDSN())
 	if err != nil {
 		return nil, err
 	}
@@ -37,13 +46,79 @@ func (s *SQLiteStore) Close() error {
 }
 
 func (s *SQLiteStore) ListTeam() ([]domain.TeamPokemon, error) {
-	rows, err := s.db.Query(`
+	return s.SearchTeam(TeamFilter{})
+}
+
+func (s *SQLiteStore) SearchTeam(filter TeamFilter) ([]domain.TeamPokemon, error) {
+	query := `
 		SELECT ` + teamSelectColumns + `
 		FROM team_pokemon
-		ORDER BY slot_order
-	`)
+	`
+	var (
+		clauses []string
+		args    []any
+	)
+
+	if filter.PrimaryType != "" {
+		clauses = append(clauses, "LOWER(primary_type) = LOWER(?)")
+		args = append(args, filter.PrimaryType)
+	}
+	if filter.Name != "" {
+		clauses = append(clauses, "LOWER(name) LIKE '%' || LOWER(?) || '%'")
+		args = append(args, filter.Name)
+	}
+	if filter.DexID != nil {
+		clauses = append(clauses, "dex_id = ?")
+		args = append(args, *filter.DexID)
+	}
+	if filter.Level != nil {
+		clauses = append(clauses, "level = ?")
+		args = append(args, *filter.Level)
+	} else {
+		if filter.MinLevel != nil {
+			clauses = append(clauses, "level >= ?")
+			args = append(args, *filter.MinLevel)
+		}
+		if filter.MaxLevel != nil {
+			clauses = append(clauses, "level <= ?")
+			args = append(args, *filter.MaxLevel)
+		}
+	}
+	if filter.CaughtDate != "" {
+		clauses = append(clauses, "caught_date = ?")
+		args = append(args, filter.CaughtDate)
+	} else {
+		if filter.CaughtAfter != "" {
+			clauses = append(clauses, "caught_date >= ?")
+			args = append(args, filter.CaughtAfter)
+		}
+		if filter.CaughtBefore != "" {
+			clauses = append(clauses, "caught_date <= ?")
+			args = append(args, filter.CaughtBefore)
+		}
+	}
+
+	if len(clauses) > 0 {
+		query += " WHERE " + strings.Join(clauses, " AND ")
+	}
+
+	sortBy := filter.SortBy
+	if sortBy == "" {
+		sortBy = SortBySlot
+	}
+	sortColumn, err := sortBy.SQLColumn()
 	if err != nil {
 		return nil, err
+	}
+	order := "ASC"
+	if filter.SortDesc {
+		order = "DESC"
+	}
+	query += fmt.Sprintf(" ORDER BY %s %s, slot_order ASC", sortColumn, order)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("search team: %w", err)
 	}
 	defer rows.Close()
 
