@@ -4,6 +4,10 @@ Workshop stage 5: Session management for the Agentic RAG Pokédex — persistent
 
 Builds on stage 4 with Ollama (via langchaingo), native tool calling, in-memory SQLite for party Pokémon, vector-backed session memory, and an embedded Kanto knowledge corpus for RAG.
 
+## Documentation
+
+- [Multi-turn agent architecture](docs/multi-turn-agent.md) — block diagrams and flow for session lifecycle, tool-calling loop, memory model, and trace events
+
 ## Prerequisites
 
 - Go 1.25
